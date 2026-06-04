@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiple Bubble - Fun Sorting Math Game</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Canvas Confetti for spectacular win animations -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Outfit:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            touch-action: none; /* Prevents default zooming and scrolling during drag on mobile */
+        }
+
+        .title-font {
+            font-family: 'Fredoka One', cursive;
+        }
+
+        /* Iridescent main bubble effect styling */
+        .bubble-membrane {
+            background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.4) 0%, rgba(56, 189, 248, 0.2) 40%, rgba(168, 85, 247, 0.2) 70%, rgba(236, 72, 153, 0.4) 100%);
+            box-shadow: inset 0 0 40px rgba(255, 255, 255, 0.3),
+                        0 0 30px rgba(125, 211, 252, 0.5),
+                        0 10px 40px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+            transition: transform 0.1s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* Satellite glassy bubble styling */
+        .satellite-bubble {
+            background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.65) 0%, rgba(56, 189, 248, 0.25) 45%, rgba(168, 85, 247, 0.25) 70%, rgba(236, 72, 153, 0.55) 100%);
+            box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.5),
+                        0 0 15px rgba(125, 211, 252, 0.5),
+                        0 4px 10px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(2px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* Pulse Red effect for wrong answers (Enhanced for dramatic impact) */
+        @keyframes pulse-red {
+            0% {
+                box-shadow: inset 0 0 60px rgba(239, 68, 68, 0.8), 0 0 50px rgba(239, 68, 68, 1);
+                border-color: rgba(239, 68, 68, 1);
+                background: radial-gradient(circle at 50% 50%, rgba(239, 68, 68, 0.4) 0%, rgba(239, 68, 68, 0.1) 60%, rgba(15, 23, 42, 0.8) 100%);
+                transform: scale(1.12);
+            }
+            50% {
+                transform: scale(0.95);
+            }
+            100% {
+                box-shadow: inset 0 0 40px rgba(255, 255, 255, 0.3), 0 0 30px rgba(125, 211, 252, 0.5);
+                border-color: rgba(255, 255, 255, 0.2);
+                background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.4) 0%, rgba(56, 189, 248, 0.2) 40%, rgba(168, 85, 247, 0.2) 70%, rgba(236, 72, 153, 0.4) 100%);
+                transform: scale(1);
+            }
+        }
+        
+        .pulse-wrong {
+            animation: pulse-red 0.6s cubic-bezier(0.25, 1, 0.5, 1) 1;
+        }
+
+        /* Wobbly floating membrane effect */
+        @keyframes float-wobble {
+            0%, 100% {
+                border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%;
+                transform: translate(0, 0) rotate(0deg);
+            }
+            25% {
+                border-radius: 48% 52% 47% 53% / 52% 48% 54% 46%;
+                transform: translate(2px, -3px) rotate(1deg);
+            }
+            50% {
+                border-radius: 51% 49% 52% 48% / 47% 53% 49% 51%;
+                transform: translate(-3px, 1px) rotate(-1deg);
+            }
+            75% {
+                border-radius: 49% 51% 48% 52% / 51% 49% 52% 48%;
+                transform: translate(1px, -2px) rotate(0.5deg);
+            }
+        }
+
+        .wobble-membrane {
+            animation: float-wobble 8s ease-in-out infinite;
+        }
+
+        /* Dynamic Pop-in elastic animation for new floaters inside the bubble */
+        @keyframes pop-in {
+            0% { transform: scale(0); opacity: 0; }
+            80% { transform: scale(1.15); opacity: 0.9; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .pop-in {
+            animation: pop-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        /* Hand Grab Cursor */
+        .grab { cursor: grab; }
+        .grabbing { cursor: grabbing; }
+    </style>
+</head>
+<body class="h-screen max-h-screen text-slate-100 flex flex-col justify-between overflow-hidden relative">
+
+    <!-- Starry Decorative background elements -->
+    <div class="absolute inset-0 z-0 opacity-20 pointer-events-none">
+        <div class="absolute top-10 left-10 w-4 h-4 bg-white rounded-full animate-ping"></div>
+        <div class="absolute top-1/4 right-20 w-3 h-3 bg-indigo-400 rounded-full animate-pulse"></div>
+        <div class="absolute bottom-1/3 left-1/4 w-2 h-2 bg-pink-400 rounded-full animate-pulse"></div>
+        <div class="absolute bottom-10 right-12 w-5 h-5 bg-sky-300 rounded-full animate-ping"></div>
+    </div>
+
+    <!-- Header Section -->
+    <header class="w-full z-10 px-4 pt-3 md:pt-4 flex justify-between items-center max-w-5xl mx-auto flex-shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="bg-gradient-to-tr from-sky-400 to-indigo-500 p-2 rounded-xl shadow-lg shadow-indigo-500/30">
+                <i data-lucide="sparkles" class="w-5 h-5 text-white"></i>
+            </div>
+            <div>
+                <h1 class="text-lg md:text-2xl title-font bg-gradient-to-r from-sky-400 via-indigo-200 to-pink-400 bg-clip-text text-transparent leading-none">
+                    Multiple Bubble
+                </h1>
+                <p class="text-[10px] md:text-xs text-slate-400 hidden sm:block mt-1">Match the correct multiples to weave the bubble web!</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <!-- Progress Tracker -->
+            <div class="bg-slate-800/80 backdrop-blur-sm border border-slate-700/50 px-2.5 py-1 md:px-4 md:py-1.5 rounded-xl text-center">
+                <span class="text-[10px] text-slate-400 block uppercase tracking-wider font-semibold leading-none mb-1">Matched</span>
+                <span id="score-counter" class="text-xs md:text-sm font-bold text-sky-400 title-font">0 / 0</span>
+            </div>
+
+            <!-- Level Counter -->
+            <div class="bg-slate-800/80 backdrop-blur-sm border border-slate-700/50 px-2.5 py-1 md:px-4 md:py-1.5 rounded-xl text-center">
+                <span class="text-[10px] text-slate-400 block uppercase tracking-wider font-semibold leading-none mb-1">Level</span>
+                <span id="level-counter" class="text-xs md:text-sm font-bold text-amber-400 title-font">1</span>
+            </div>
+
+            <!-- Strikes Counter -->
+            <div class="bg-slate-800/80 backdrop-blur-sm border border-slate-700/50 px-2.5 py-1 md:px-4 md:py-1.5 rounded-xl text-center">
+                <span class="text-[10px] text-slate-400 block uppercase tracking-wider font-semibold leading-none mb-1">Strikes</span>
+                <span id="strikes-counter" class="text-xs md:text-sm font-bold text-rose-500 title-font tracking-wide">◯ ◯ ◯</span>
+            </div>
+
+            <!-- Restart / New Game -->
+            <button id="btn-restart" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 p-2 rounded-xl text-slate-300 transition active:scale-95 animate-pulse" title="Restart Level & Progress">
+                <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Interactive Game Center Zone -->
+    <main class="flex-grow flex flex-col justify-center items-center relative z-10 w-full px-4 overflow-hidden py-2">
+        <!-- Tutorial Prompt -->
+        <div id="tutorial-tip" class="text-center text-slate-400 max-w-sm text-xs md:text-sm mb-2 px-3 py-1.5 rounded-lg bg-slate-800/40 border border-slate-700/30 transition-opacity duration-500 flex-shrink-0">
+            Drag numbers from the bank below that are <strong class="text-sky-300">multiples</strong> of the center number!
+        </div>
+
+        <!-- The Target Area containing the Central Bubble -->
+        <div id="drop-target-zone" class="relative flex items-center justify-center w-56 h-56 sm:w-72 sm:h-72 md:w-80 md:h-80 lg:w-90 lg:h-90 max-w-full flex-grow-0 my-auto">
+            
+            <!-- SVG Web Strands overlay -->
+            <svg id="web-strands" class="absolute inset-0 pointer-events-none z-10 w-full h-full"></svg>
+            
+            <!-- Floating Bubble Membrane (Z-index 0 to keep it behind connecting web strands and outer floaters) -->
+            <div id="bubble-target" class="bubble-membrane wobble-membrane absolute inset-0 rounded-full border-2 border-white/20 flex flex-col items-center justify-center relative cursor-default select-none z-0">
+                
+                <!-- Center Multiplier Label -->
+                <div id="center-bubble-core" class="z-25 text-center pointer-events-none p-4 sm:p-5 rounded-full bg-slate-900/95 backdrop-blur-lg border border-slate-600/70 shadow-2xl transition duration-300 transform scale-100">
+                    <span class="text-[10px] sm:text-xs text-slate-300 uppercase tracking-widest font-extrabold block mb-0.5">Multiples of</span>
+                    <h2 id="target-factor" class="text-4xl sm:text-5xl md:text-6xl title-font bg-gradient-to-br from-white via-slate-100 to-sky-100 bg-clip-text text-transparent filter drop-shadow">5</h2>
+                </div>
+            </div>
+
+            <!-- Satellite Floaters Container -->
+            <div id="membrane-floaters-container" class="absolute inset-0 pointer-events-none z-20">
+                <!-- Satellite bubbles added dynamically -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Bottom Number Bank Section -->
+    <section class="w-full z-10 max-w-4xl mx-auto px-4 pb-4 md:pb-6 flex flex-col gap-3 flex-shrink-0">
+        
+        <!-- Controls & Difficulty Select -->
+        <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/80 pt-3">
+            <div class="flex items-center gap-2">
+                <span class="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider">Starting Baseline:</span>
+                <div class="flex bg-slate-800/80 rounded-lg p-0.5 border border-slate-700/50 text-[10px] sm:text-xs">
+                    <button id="diff-easy" class="px-2.5 py-1 rounded-md text-slate-300 font-medium transition [&.active]:bg-sky-500 [&.active]:text-white active">Easy</button>
+                    <button id="diff-medium" class="px-2.5 py-1 rounded-md text-slate-300 font-medium transition [&.active]:bg-sky-500 [&.active]:text-white">Medium</button>
+                    <button id="diff-hard" class="px-2.5 py-1 rounded-md text-slate-300 font-medium transition [&.active]:bg-sky-500 [&.active]:text-white">Hard</button>
+                </div>
+            </div>
+
+            <div class="text-[10px] sm:text-xs text-slate-400 bg-slate-800/40 px-2.5 py-1 rounded-lg border border-slate-800">
+                Correct values left: <span id="remaining-count" class="font-bold text-sky-400">0</span>
+            </div>
+        </div>
+
+        <!-- Bank Container -->
+        <div class="bg-slate-900/80 backdrop-blur-md border border-indigo-950/50 p-3 md:p-5 rounded-2xl shadow-2xl relative">
+            <div class="absolute -top-2.5 left-6 px-3 py-0.5 bg-indigo-500 text-[9px] uppercase font-bold tracking-widest rounded-full text-white shadow-md shadow-indigo-500/20">
+                Number Bank
+            </div>
+            
+            <!-- Drag and drop draggable slots grid -->
+            <div id="number-bank" class="flex flex-wrap justify-center gap-2 min-h-[56px] sm:min-h-[70px] items-center relative py-1">
+                <!-- Numbers will spawn dynamically here -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Winning Modal Screen Overlay -->
+    <div id="win-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-slate-900 border border-indigo-500/30 p-8 rounded-3xl max-w-md w-full text-center relative overflow-hidden shadow-2xl shadow-indigo-500/10">
+            <!-- Decorative circle backdrops -->
+            <div class="absolute -top-10 -left-10 w-32 h-32 bg-sky-500/10 rounded-full blur-2xl"></div>
+            <div class="absolute -bottom-10 -right-10 w-32 h-32 bg-pink-500/10 rounded-full blur-2xl"></div>
+
+            <div class="relative z-10 flex flex-col items-center">
+                <div class="w-20 h-20 bg-gradient-to-tr from-yellow-400 to-amber-500 rounded-full flex items-center justify-center text-4xl shadow-lg shadow-amber-500/30 mb-4 animate-bounce">
+                    👑
+                </div>
+                <h3 class="text-3xl title-font text-white mb-2">Spectacular!</h3>
+                <p class="text-slate-300 mb-6" id="win-congratulations-text">
+                    You wove the mathematical bubble web and advanced!
+                </p>
+
+                <!-- Stats summary -->
+                <div class="grid grid-cols-2 gap-4 w-full mb-6">
+                    <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-800">
+                        <span class="text-xs text-slate-400 block uppercase tracking-wider font-semibold mb-1">Target Factor</span>
+                        <span id="win-stat-factor" class="text-xl font-extrabold text-sky-400 title-font">5</span>
+                    </div>
+                    <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-800">
+                        <span class="text-xs text-slate-400 block uppercase tracking-wider font-semibold mb-1">Completed</span>
+                        <span id="win-stat-count" class="text-xl font-extrabold text-pink-400 title-font">Level 1</span>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 w-full">
+                    <button id="btn-next-level" class="flex-grow bg-gradient-to-r from-sky-400 to-indigo-500 hover:from-sky-500 hover:to-indigo-600 text-white font-bold py-3 px-6 rounded-xl transition duration-150 transform hover:-translate-y-0.5 active:scale-95 shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2">
+                        <span>Play Next Level</span>
+                        <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal Screen Overlay -->
+    <div id="game-over-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-slate-900 border border-rose-500/30 p-8 rounded-3xl max-w-md w-full text-center relative overflow-hidden shadow-2xl shadow-rose-500/10">
+            <!-- Decorative circle backdrops -->
+            <div class="absolute -top-10 -left-10 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl"></div>
+            <div class="absolute -bottom-10 -right-10 w-32 h-32 bg-violet-500/10 rounded-full blur-2xl"></div>
+
+            <div class="relative z-10 flex flex-col items-center">
+                <div class="w-20 h-20 bg-gradient-to-tr from-rose-500 to-red-600 rounded-full flex items-center justify-center text-4xl shadow-lg shadow-red-500/30 mb-4 animate-pulse">
+                    💥
+                </div>
+                <h3 class="text-3xl title-font text-white mb-2">Game Over!</h3>
+                <p class="text-slate-300 mb-6">
+                    The bubble burst after accumulating three strikes. Better luck next time!
+                </p>
+
+                <!-- Stats summary -->
+                <div class="grid grid-cols-2 gap-4 w-full mb-6">
+                    <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-800">
+                        <span class="text-xs text-slate-400 block uppercase tracking-wider font-semibold mb-1">Final Level</span>
+                        <span id="fail-stat-level" class="text-xl font-extrabold text-amber-400 title-font">Level 1</span>
+                    </div>
+                    <div class="bg-slate-800/50 p-3 rounded-xl border border-slate-800">
+                        <span class="text-xs text-slate-400 block uppercase tracking-wider font-semibold mb-1">Total Hits</span>
+                        <span id="fail-stat-hits" class="text-xl font-extrabold text-pink-400 title-font">0</span>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 w-full">
+                    <button id="btn-restart-game" class="flex-grow bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white font-bold py-3 px-6 rounded-xl transition duration-150 transform hover:-translate-y-0.5 active:scale-95 shadow-lg shadow-red-500/20 flex items-center justify-center gap-2">
+                        <span>Try Again</span>
+                        <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generic Simple Custom Alert Box -->
+    <div id="custom-alert-box" class="fixed bottom-6 right-6 z-50 bg-slate-900 border-l-4 border-amber-500 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 transform translate-y-12 opacity-0 pointer-events-none transition-all duration-300">
+        <div class="text-amber-500"><i data-lucide="alert-triangle" class="w-5 h-5"></i></div>
+        <div>
+            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">Alert</p>
+            <p id="custom-alert-message" class="text-sm text-slate-200">Alert message here.</p>
+        </div>
+    </div>
+
+    <!-- Sound Effects / Audio Generation Context -->
+    <script>
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playTone(freq, type, duration, vol) {
+            try {
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {
+                // Audio block handling
+            }
+        }
+
+        const sounds = {
+            correct: () => {
+                playTone(330, 'sine', 0.15, 0.2);
+                setTimeout(() => playTone(660, 'sine', 0.35, 0.2), 80);
+            },
+            wrong: () => {
+                playTone(220, 'triangle', 0.1, 0.25);
+                setTimeout(() => playTone(147, 'sawtooth', 0.3, 0.25), 50);
+            },
+            bubbleFloat: () => {
+                playTone(400, 'sine', 0.1, 0.05);
+                setTimeout(() => playTone(500, 'sine', 0.08, 0.04), 50);
+            },
+            popCeremonious: () => {
+                playTone(800, 'sine', 0.15, 0.3);
+                setTimeout(() => playTone(1200, 'sine', 0.1, 0.2), 30);
+                setTimeout(() => playTone(1500, 'sine', 0.08, 0.15), 60);
+                setTimeout(() => playTone(400, 'sine', 0.4, 0.1), 100);
+            },
+            popFail: () => {
+                playTone(180, 'sawtooth', 0.2, 0.3);
+                setTimeout(() => playTone(110, 'triangle', 0.4, 0.35), 100);
+            },
+            click: () => {
+                playTone(523.25, 'sine', 0.08, 0.1);
+            }
+        };
+    </script>
+
+    <!-- Game Engine JS -->
+    <script>
+        let currentTargetFactor = 5;
+        let score = 0;
+        let strikes = 0;          // Accumulated strikes (limit 3)
+        let currentLevel = 1;     // Track the progressive levels
+        let correctNumbersInMembrane = new Set();
+        let totalMultiplesCount = 0;
+        let totalHitsAcrossGame = 0; // Stats count
+
+        let activeDragElement = null;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+        let originalParent = null;
+        let placeholderElement = null;
+        let currentTouchX = 0;
+        let currentTouchY = 0;
+
+        let bubbleTargetRect = null;
+        let floaters = [];
+        let animationFrameId = null;
+        let popAnimation = null;
+
+        const bubbleTarget = document.getElementById('bubble-target');
+        const centerBubbleCore = document.getElementById('center-bubble-core');
+        const targetFactorLabel = document.getElementById('target-factor');
+        const numberBank = document.getElementById('number-bank');
+        const scoreCounter = document.getElementById('score-counter');
+        const strikesCounter = document.getElementById('strikes-counter');
+        const levelCounter = document.getElementById('level-counter');
+        const btnRestart = document.getElementById('btn-restart');
+        const remainingCountLabel = document.getElementById('remaining-count');
+        const membraneFloatersContainer = document.getElementById('membrane-floaters-container');
+        const webStrands = document.getElementById('web-strands');
+        
+        // Modals
+        const winModal = document.getElementById('win-modal');
+        const btnNextLevel = document.getElementById('btn-next-level');
+        const winStatFactor = document.getElementById('win-stat-factor');
+        const winStatCount = document.getElementById('win-stat-count');
+
+        const gameOverModal = document.getElementById('game-over-modal');
+        const btnRestartGame = document.getElementById('btn-restart-game');
+        const failStatLevel = document.getElementById('fail-stat-level');
+        const failStatHits = document.getElementById('fail-stat-hits');
+
+        function triggerCustomAlert(msg) {
+            const alertBox = document.getElementById('custom-alert-box');
+            const alertMsg = document.getElementById('custom-alert-message');
+            alertMsg.innerText = msg;
+            alertBox.classList.remove('translate-y-12', 'opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                alertBox.classList.add('translate-y-12', 'opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+
+        lucide.createIcons();
+
+        function generateLevel() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+            membraneFloatersContainer.innerHTML = '';
+            webStrands.innerHTML = '';
+            floaters = [];
+            correctNumbersInMembrane.clear();
+
+            // Cancel any active animation and reset the bubble state
+            if (popAnimation) {
+                popAnimation.cancel();
+                popAnimation = null;
+            }
+            if (bubbleTarget.getAnimations) {
+                bubbleTarget.getAnimations().forEach(anim => anim.cancel());
+            }
+
+            // Restore the bubble visibility, transform state, and wobble animation
+            bubbleTarget.style.transform = '';
+            bubbleTarget.style.opacity = '1';
+            bubbleTarget.style.filter = '';
+            bubbleTarget.classList.add('wobble-membrane');
+
+            // CRITICAL RE-BALANCE: The central factor is always a single-digit (2 to 9) across all levels
+            currentTargetFactor = Math.floor(Math.random() * 8) + 2; 
+            targetFactorLabel.textContent = currentTargetFactor;
+
+            // DYNAMIC COMPLEXITY SCALING BASED ON THE CURRENT LEVEL
+            let targetMultiplesToGenerate = 3 + Math.floor((currentLevel - 1) / 2);
+            targetMultiplesToGenerate = Math.min(targetMultiplesToGenerate, 7); // Maximum cap at 7 multiples to fit beautifully on the orbit web
+
+            let totalBankSize = 6 + (currentLevel - 1);
+            totalBankSize = Math.min(totalBankSize, 14); // Maximum bank cap to ensure easy mobile layout rendering
+
+            // Guard: bank size must be greater than target multiple count
+            if (totalBankSize <= targetMultiplesToGenerate) {
+                totalBankSize = targetMultiplesToGenerate + 3;
+            }
+
+            // Generate correct multiples
+            let usedMultiples = new Set();
+            let bankCandidates = [];
+            while (usedMultiples.size < targetMultiplesToGenerate) {
+                let multiplier = Math.floor(Math.random() * 15) + 2; // times 2 through 16
+                let multipleValue = currentTargetFactor * multiplier;
+                if (!usedMultiples.has(multipleValue)) {
+                    usedMultiples.add(multipleValue);
+                    bankCandidates.push({ value: multipleValue, isMultiple: true });
+                }
+            }
+            totalMultiplesCount = usedMultiples.size;
+
+            // Generate wrong distractors
+            let distractorCount = totalBankSize - totalMultiplesCount;
+            let usedDistractors = new Set();
+
+            while (usedDistractors.size < distractorCount) {
+                let isNearMultiple = Math.random() > 0.4;
+                let candidateDistractor;
+
+                if (isNearMultiple) {
+                    // Create close visual distractors (+/- 1) to challenge precision counting
+                    let randMultiplier = Math.floor(Math.random() * 15) + 2;
+                    let sign = Math.random() > 0.5 ? 1 : -1;
+                    candidateDistractor = (currentTargetFactor * randMultiplier) + sign;
+                } else {
+                    candidateDistractor = Math.floor(Math.random() * (currentTargetFactor * 15)) + (currentTargetFactor + 1);
+                }
+
+                if (candidateDistractor % currentTargetFactor !== 0 && candidateDistractor > currentTargetFactor && !usedDistractors.has(candidateDistractor)) {
+                    usedDistractors.add(candidateDistractor);
+                    bankCandidates.push({ value: candidateDistractor, isMultiple: false });
+                }
+            }
+
+            bankCandidates.sort(() => Math.random() - 0.5);
+
+            score = 0;
+            updateUIStats();
+
+            numberBank.innerHTML = '';
+            bankCandidates.forEach((item, index) => {
+                const node = createDraggableNumberNode(item.value, index);
+                numberBank.appendChild(node);
+            });
+
+            // Sync baseline difficulty selectors
+            updateDifficultySelectorStyles();
+
+            // Refresh bubble bounds cache
+            bubbleTargetRect = bubbleTarget.getBoundingClientRect();
+
+            startMembraneAnimationLoop();
+        }
+
+        function updateDifficultySelectorStyles() {
+            // Unset all active styling on starting baseline selectors
+            document.querySelectorAll('[id^="diff-"]').forEach(btn => btn.classList.remove('active', 'bg-sky-500', 'text-white'));
+            
+            // Map the current level to baseline buttons for visual representation
+            if (currentLevel < 5) {
+                document.getElementById('diff-easy').classList.add('active', 'bg-sky-500', 'text-white');
+            } else if (currentLevel < 9) {
+                document.getElementById('diff-medium').classList.add('active', 'bg-sky-500', 'text-white');
+            } else {
+                document.getElementById('diff-hard').classList.add('active', 'bg-sky-500', 'text-white');
+            }
+        }
+
+        function createDraggableNumberNode(val, id) {
+            const div = document.createElement('div');
+            div.className = "flex items-center justify-center min-w-[56px] h-11 sm:h-14 px-3 sm:px-4 bg-slate-800 hover:bg-slate-700/90 active:scale-95 border-2 border-indigo-500/20 text-white rounded-xl sm:rounded-2xl font-bold title-font text-sm sm:text-lg shadow-md cursor-grab active:cursor-grabbing transition duration-150 relative z-30 select-none grab";
+            div.setAttribute('data-value', val);
+            div.setAttribute('data-id', id);
+            div.innerText = val;
+
+            div.addEventListener('mousedown', dragStart);
+            div.addEventListener('touchstart', dragStart, { passive: false });
+
+            return div;
+        }
+
+        function updateUIStats() {
+            scoreCounter.textContent = `${score} / ${totalMultiplesCount}`;
+            levelCounter.textContent = currentLevel;
+            remainingCountLabel.textContent = `${totalMultiplesCount - score}`;
+
+            // Handle display logic for Strikes system: e.g. "◯ ◯ ◯" turning to "❌ ❌ ❌"
+            let strikeStr = "";
+            for (let i = 1; i <= 3; i++) {
+                if (i <= strikes) {
+                    strikeStr += "❌ ";
+                } else {
+                    strikeStr += "◯ ";
+                }
+            }
+            strikesCounter.textContent = strikeStr.trim();
+        }
+
+        function dragStart(e) {
+            if (e.type === 'touchstart') {
+                e.preventDefault();
+            }
+
+            sounds.click();
+
+            activeDragElement = e.currentTarget;
+            activeDragElement.classList.add('grabbing');
+            activeDragElement.classList.remove('grab');
+
+            originalParent = activeDragElement.parentNode;
+            const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+
+            const rect = activeDragElement.getBoundingClientRect();
+            dragOffsetX = clientX - rect.left;
+            dragOffsetY = clientY - rect.top;
+
+            placeholderElement = document.createElement('div');
+            placeholderElement.className = "w-[56px] h-11 sm:h-14 border-2 border-dashed border-slate-700 rounded-xl sm:rounded-2xl";
+            originalParent.insertBefore(placeholderElement, activeDragElement);
+
+            document.body.appendChild(activeDragElement);
+
+            activeDragElement.style.position = 'fixed';
+            activeDragElement.style.width = `${rect.width}px`;
+            activeDragElement.style.height = `${rect.height}px`;
+            activeDragElement.style.left = `${clientX - dragOffsetX}px`;
+            activeDragElement.style.top = `${clientY - dragOffsetY}px`;
+            activeDragElement.style.zIndex = '9999';
+            activeDragElement.style.transition = 'none';
+
+            bubbleTargetRect = bubbleTarget.getBoundingClientRect();
+
+            if (e.type === 'touchstart') {
+                document.addEventListener('touchmove', dragMove, { passive: false });
+                document.addEventListener('touchend', dragEnd);
+            } else {
+                document.addEventListener('mousemove', dragMove);
+                document.addEventListener('mouseup', dragEnd);
+            }
+        }
+
+        function dragMove(e) {
+            if (!activeDragElement) return;
+
+            if (e.type === 'touchmove') {
+                e.preventDefault();
+            }
+
+            const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+            const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+
+            currentTouchX = clientX;
+            currentTouchY = clientY;
+
+            activeDragElement.style.left = `${clientX - dragOffsetX}px`;
+            activeDragElement.style.top = `${clientY - dragOffsetY}px`;
+
+            const isOverlapping = checkOverlap(clientX, clientY);
+            if (isOverlapping) {
+                bubbleTarget.style.transform = 'scale(1.08)';
+                centerBubbleCore.classList.add('scale-110');
+            } else {
+                bubbleTarget.style.transform = 'scale(1)';
+                centerBubbleCore.classList.remove('scale-110');
+            }
+        }
+
+        function dragEnd(e) {
+            if (!activeDragElement) return;
+
+            document.removeEventListener('mousemove', dragMove);
+            document.removeEventListener('mouseup', dragEnd);
+            document.removeEventListener('touchmove', dragMove);
+            document.removeEventListener('touchend', dragEnd);
+
+            const clientX = e.type === 'touchend' ? currentTouchX : e.clientX;
+            const clientY = e.type === 'touchend' ? currentTouchY : e.clientY;
+
+            const isOverlapping = checkOverlap(clientX, clientY);
+            const droppedValue = parseInt(activeDragElement.getAttribute('data-value'), 10);
+            const isCorrectMultiple = (droppedValue % currentTargetFactor === 0);
+
+            if (isOverlapping) {
+                if (isCorrectMultiple) {
+                    handleCorrectDrop(droppedValue, clientX, clientY);
+                } else {
+                    handleIncorrectDrop();
+                }
+            } else {
+                returnToBank();
+            }
+
+            if (activeDragElement) {
+                activeDragElement.classList.remove('grabbing');
+                activeDragElement.classList.add('grab');
+                activeDragElement.style.transition = '';
+                activeDragElement = null;
+            }
+
+            if (placeholderElement && placeholderElement.parentNode) {
+                placeholderElement.parentNode.removeChild(placeholderElement);
+            }
+            placeholderElement = null;
+
+            bubbleTarget.style.transform = 'scale(1)';
+            centerBubbleCore.classList.remove('scale-110');
+        }
+
+        function checkOverlap(x, y) {
+            if (!bubbleTargetRect) return false;
+            
+            const bubbleCenterX = bubbleTargetRect.left + (bubbleTargetRect.width / 2);
+            const bubbleCenterY = bubbleTargetRect.top + (bubbleTargetRect.height / 2);
+            const distance = Math.hypot(x - bubbleCenterX, y - bubbleCenterY);
+
+            const targetRadius = (bubbleTargetRect.width / 2) + 20; 
+            return distance <= targetRadius;
+        }
+
+        function returnToBank() {
+            if (!activeDragElement) return;
+            
+            activeDragElement.style.position = '';
+            activeDragElement.style.left = '';
+            activeDragElement.style.top = '';
+            activeDragElement.style.width = '';
+            activeDragElement.style.height = '';
+            activeDragElement.style.zIndex = '30';
+            activeDragElement.style.transition = '';
+            
+            if (placeholderElement && placeholderElement.parentNode) {
+                originalParent.replaceChild(activeDragElement, placeholderElement);
+            } else {
+                originalParent.appendChild(activeDragElement);
+            }
+        }
+
+        function handleCorrectDrop(value, dropX, dropY) {
+            if (correctNumbersInMembrane.has(value)) {
+                triggerCustomAlert(`"${value}" is already attached to the bubble!`);
+                returnToBank();
+                return;
+            }
+
+            sounds.correct();
+            correctNumbersInMembrane.add(value);
+            score++;
+            totalHitsAcrossGame++;
+            updateUIStats();
+
+            if (activeDragElement && activeDragElement.parentNode) {
+                activeDragElement.parentNode.removeChild(activeDragElement);
+            }
+            activeDragElement = null;
+
+            spawnMembraneFloater(value, dropX, dropY);
+
+            if (score === totalMultiplesCount) {
+                setTimeout(triggerCelebratoryPop, 400);
+            }
+        }
+
+        function handleIncorrectDrop() {
+            sounds.wrong();
+            strikes++; // Accumulate strike persistently
+            updateUIStats();
+
+            // FIX: Remove infinite wobble animation first so the pulse animation can run uninterrupted
+            bubbleTarget.classList.remove('wobble-membrane');
+            
+            // Force reflow/repaint to restart the keyframe animation cleanly
+            void bubbleTarget.offsetWidth;
+            
+            bubbleTarget.classList.add('pulse-wrong');
+            setTimeout(() => {
+                bubbleTarget.classList.remove('pulse-wrong');
+                // Only restore wobble if the game is still active
+                if (strikes < 3) {
+                    bubbleTarget.classList.add('wobble-membrane');
+                }
+            }, 600);
+
+            returnToBank();
+
+            // End game immediately if strike limit is reached
+            if (strikes >= 3) {
+                setTimeout(triggerGameOver, 600);
+            }
+        }
+
+        function triggerGameOver() {
+            sounds.popFail();
+            
+            // Stop the physics animation rendering
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+
+            // Animate bubble decaying and collapsing
+            bubbleTarget.classList.remove('wobble-membrane');
+            bubbleTarget.animate([
+                { transform: 'scale(1)', opacity: 1, filter: 'grayscale(0) brightness(1)' },
+                { transform: 'scale(0.8) rotate(15deg)', opacity: 0.5, filter: 'grayscale(0.8) brightness(0.5)' },
+                { transform: 'scale(0)', opacity: 0, filter: 'grayscale(1) brightness(0)' }
+            ], {
+                duration: 600,
+                easing: 'ease-in',
+                fill: 'forwards'
+            });
+
+            // Disintegrate satellites
+            floaters.forEach(f => {
+                f.el.animate([
+                    { transform: 'scale(1)', opacity: 1 },
+                    { transform: 'scale(0) rotate(-45deg)', opacity: 0 }
+                ], { duration: 400, fill: 'forwards' });
+            });
+
+            // Erase web lines
+            webStrands.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, fill: 'forwards' });
+
+            // Display Game over stats
+            setTimeout(() => {
+                failStatLevel.textContent = `Level ${currentLevel}`;
+                failStatHits.textContent = totalHitsAcrossGame;
+                gameOverModal.classList.remove('opacity-0', 'pointer-events-none');
+            }, 800);
+        }
+
+        function spawnMembraneFloater(value, dropX, dropY) {
+            sounds.bubbleFloat();
+
+            // Create glassy satellite bubble node
+            const floaterEl = document.createElement('div');
+            floaterEl.className = "satellite-bubble absolute flex items-center justify-center w-12 h-12 rounded-full font-bold text-white shadow-md text-sm border pointer-events-none pop-in z-30 select-none";
+            
+            // Text node
+            const label = document.createElement('span');
+            label.className = "relative z-10 drop-shadow";
+            label.innerText = value;
+            floaterEl.appendChild(label);
+
+            // Real glassy glare shine bubble layer
+            const glare = document.createElement('div');
+            glare.className = "absolute top-1 left-1.5 w-2.5 h-1.5 bg-white/60 rounded-full rotate-[-30deg]";
+            floaterEl.appendChild(glare);
+
+            membraneFloatersContainer.appendChild(floaterEl);
+
+            const containerRect = membraneFloatersContainer.getBoundingClientRect();
+            
+            // Calculate spawn location based on where user released drag
+            let spawnX = (dropX - containerRect.left) - 24; 
+            let spawnY = (dropY - containerRect.top) - 24;
+
+            // Default fallback if bounds are zero
+            if (containerRect.width === 0) {
+                spawnX = 120;
+                spawnY = 120;
+            }
+
+            floaters.push({
+                el: floaterEl,
+                x: spawnX,
+                y: spawnY,
+                vx: (Math.random() - 0.5) * 2,
+                vy: (Math.random() - 0.5) * 2,
+                value: value
+            });
+        }
+
+        function startMembraneAnimationLoop() {
+            function updatePhysics() {
+                const width = membraneFloatersContainer.clientWidth || 280;
+                const height = membraneFloatersContainer.clientHeight || 280;
+                const centerX = width / 2;
+                const centerY = height / 2;
+                
+                // Target orbit path: sat should lock onto the perimeter of the main bubble
+                const mainBubbleRadius = (bubbleTarget.clientWidth || 240) / 2;
+                const targetOrbitRadius = mainBubbleRadius + 14; 
+
+                // SVG Drawing helper setup
+                let svgContent = '';
+
+                floaters.forEach(f => {
+                    const dx = (f.x + 24) - centerX;
+                    const dy = (f.y + 24) - centerY;
+                    const distance = Math.hypot(dx, dy) || 1;
+
+                    // Radial Unit Vectors
+                    const ux = dx / distance;
+                    const uy = dy / distance;
+
+                    // Spring attraction force to the orbit rim boundary
+                    const displacement = distance - targetOrbitRadius;
+                    const springK = 0.08; 
+                    const forceSpring = -springK * displacement;
+
+                    f.vx += ux * forceSpring;
+                    f.vy += uy * forceSpring;
+
+                    // Add subtle tangential orbital rotation to give the "spider web" a lifelike sway
+                    const orbitSwaySpeed = 0.08;
+                    const tx = -uy; // Tangent X
+                    const ty = ux;  // Tangent Y
+                    f.vx += tx * orbitSwaySpeed;
+                    f.vy += ty * orbitSwaySpeed;
+
+                    // Apply friction (damping) so they settle cleanly on their target web positions
+                    f.vx *= 0.90;
+                    f.vy *= 0.90;
+
+                    // Position translation
+                    f.x += f.vx;
+                    f.y += f.vy;
+
+                    // Push apart satellites if they collide, spacing them out naturally around the rim
+                    floaters.forEach(other => {
+                        if (other === f) return;
+                        const sDx = f.x - other.x;
+                        const sDy = f.y - other.y;
+                        const sDist = Math.hypot(sDx, sDy) || 1;
+                        const minDist = 48; // satellite diameter
+                        if (sDist < minDist) {
+                            const pushForce = (minDist - sDist) * 0.05;
+                            const pux = sDx / sDist;
+                            const puy = sDy / sDist;
+                            f.vx += pux * pushForce;
+                            f.vy += puy * pushForce;
+                            other.vx -= pux * pushForce;
+                            other.vy -= puy * pushForce;
+                        }
+                    });
+
+                    // Render node absolute positions
+                    f.el.style.left = `${f.x}px`;
+                    f.el.style.top = `${f.y}px`;
+
+                    // Generate SVG connection line from center bubble to satellite
+                    const lineX1 = centerX;
+                    const lineY1 = centerY;
+                    const lineX2 = f.x + 24;
+                    const lineY2 = f.y + 24;
+
+                    // Render two lines (Wide glowing aura line + thin core web line with increased transparency/subtlety)
+                    svgContent += `
+                        <line x1="${lineX1}" y1="${lineY1}" x2="${lineX2}" y2="${lineY2}" 
+                              stroke="rgba(168, 85, 247, 0.08)" stroke-width="5" stroke-linecap="round" />
+                        <line x1="${lineX1}" y1="${lineY1}" x2="${lineX2}" y2="${lineY2}" 
+                              stroke="rgba(56, 189, 248, 0.25)" stroke-width="1.5" stroke-linecap="round" />
+                    `;
+                });
+
+                // Web Ring connectors: weave strands BETWEEN satellites to make it look like a spider web
+                if (floaters.length >= 2) {
+                    // Sort copies of satellite nodes by their circular angle around the center bubble
+                    const sortedFloaters = [...floaters].sort((a, b) => {
+                        const angleA = Math.atan2((a.y + 24) - centerY, (a.x + 24) - centerX);
+                        const angleB = Math.atan2((b.y + 24) - centerY, (b.x + 24) - centerX);
+                        return angleA - angleB;
+                    });
+
+                    for (let i = 0; i < sortedFloaters.length; i++) {
+                        const current = sortedFloaters[i];
+                        const next = sortedFloaters[(i + 1) % sortedFloaters.length];
+
+                        const x1 = current.x + 24;
+                        const y1 = current.y + 24;
+                        const x2 = next.x + 24;
+                        const y2 = next.y + 24;
+
+                        // Render web connectors with heightened transparency
+                        svgContent += `
+                            <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" 
+                                  stroke="rgba(168, 85, 247, 0.06)" stroke-width="3" stroke-linecap="round" />
+                            <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" 
+                                  stroke="rgba(255, 255, 255, 0.15)" stroke-width="1.2" stroke-dasharray="2 3" stroke-linecap="round" />
+                        `;
+                    }
+                }
+
+                // Push compiled lines to the SVG canvas layer
+                webStrands.innerHTML = svgContent;
+
+                animationFrameId = requestAnimationFrame(updatePhysics);
+            }
+
+            animationFrameId = requestAnimationFrame(updatePhysics);
+        }
+
+        function triggerCelebratoryPop() {
+            sounds.popCeremonious();
+
+            bubbleTarget.classList.remove('wobble-membrane');
+            
+            popAnimation = bubbleTarget.animate([
+                { transform: 'scale(1)', opacity: 1, filter: 'brightness(1)' },
+                { transform: 'scale(1.25)', opacity: 0.9, filter: 'brightness(1.5)' },
+                { transform: 'scale(0)', opacity: 0, filter: 'brightness(2)' }
+            ], {
+                duration: 400,
+                easing: 'cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                fill: 'forwards'
+            });
+
+            // Pop satellite bubbles as well
+            floaters.forEach(f => {
+                f.el.animate([
+                    { transform: 'scale(1)', opacity: 1 },
+                    { transform: 'scale(1.3)', opacity: 0 },
+                ], { duration: 350, fill: 'forwards' });
+            });
+
+            // Clear web strands during pop
+            webStrands.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, fill: 'forwards' });
+
+            const duration = 2.5 * 1000;
+            const end = Date.now() + duration;
+
+            (function frame() {
+                confetti({
+                    particleCount: 5,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0 },
+                    colors: ['#38bdf8', '#818cf8', '#ec4899', '#f43f5e']
+                });
+                confetti({
+                    particleCount: 5,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1 },
+                    colors: ['#38bdf8', '#818cf8', '#ec4899', '#f43f5e']
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
+
+            setTimeout(() => {
+                winStatFactor.textContent = currentTargetFactor;
+                winStatCount.textContent = `Level ${currentLevel}`;
+                winModal.classList.remove('opacity-0', 'pointer-events-none');
+            }, 800);
+        }
+
+        // Entire Game and Progress Resets (Manually clicking the restart icon button)
+        btnRestart.addEventListener('click', () => {
+            sounds.click();
+            strikes = 0;
+            currentLevel = 1;
+            totalHitsAcrossGame = 0;
+            generateLevel();
+        });
+
+        // Baseline difficulty setup
+        document.getElementById('diff-easy').addEventListener('click', (e) => {
+            sounds.click();
+            resetToBaseline(1); // Set directly to level 1
+        });
+        document.getElementById('diff-medium').addEventListener('click', (e) => {
+            sounds.click();
+            resetToBaseline(5); // Set directly to level 5
+        });
+        document.getElementById('diff-hard').addEventListener('click', (e) => {
+            sounds.click();
+            resetToBaseline(9); // Set directly to level 9
+        });
+
+        function resetToBaseline(level) {
+            currentLevel = level;
+            strikes = 0; // Clear strikes when baseline changes
+            totalHitsAcrossGame = 0;
+            generateLevel();
+        }
+
+        btnNextLevel.addEventListener('click', () => {
+            sounds.click();
+            winModal.classList.add('opacity-0', 'pointer-events-none');
+            currentLevel++; // Progress to next level
+            generateLevel();
+        });
+
+        // Try Again action from Game Over overlay
+        btnRestartGame.addEventListener('click', () => {
+            sounds.click();
+            gameOverModal.classList.add('opacity-0', 'pointer-events-none');
+            currentLevel = 1;
+            strikes = 0;
+            totalHitsAcrossGame = 0;
+            generateLevel();
+        });
+
+        window.onload = () => {
+            generateLevel();
+        };
+
+        // Ensure bubble dimensions bounds are updated when the window resizes
+        window.addEventListener('resize', () => {
+            bubbleTargetRect = bubbleTarget.getBoundingClientRect();
+        });
+    </script>
+</body>
+</html>
